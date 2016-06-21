@@ -185,19 +185,12 @@ request_encode(struct request *request, struct iovec *iov)
  * See declaration for comments
  */
 uint32_t
-fetch_primary_key_from_tuple(struct space *space, struct tuple *found_tuple,
-	char **buffer)
+key_from_tuple_by_space(struct space *space, struct tuple *tuple,
+	char *buffer, uint32_t buffer_size)
 {
-	if (!buffer) return 0;
 	Index *primary = index_find(space, 0);
-	uint32_t key_len = found_tuple->bsize;
-	char *key = (char *) region_alloc_xc(&fiber()->gc, key_len);
-	const char *data = found_tuple->data;
-	key_len = key_create_from_tuple(primary->key_def, data,
-					key, key_len);
-	assert(key_len <= found_tuple->bsize);
-	*buffer = key;
-	return key_len;
+	return key_from_tuple_by_key_def(primary->key_def, tuple->data,
+					buffer, buffer_size);
 }
 
 /**
@@ -213,8 +206,9 @@ void
 request_rebind_to_primary_key(struct request *request, struct space *space,
 			      struct tuple *found_tuple)
 {
-	char *key;
-	uint32_t key_len = fetch_primary_key_from_tuple(space, found_tuple, &key);
+	uint32_t key_len = found_tuple->bsize;
+	char *key = (char *) region_alloc_xc(&fiber()->gc, key_len);
+	key_len = key_from_tuple_by_space(space, found_tuple, key, key_len);
 	request->key = key;
 	request->key_end = key + key_len;
 	request->index_id = 0;

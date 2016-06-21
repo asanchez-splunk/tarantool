@@ -342,7 +342,7 @@ key_parts_create_from_tuple(struct key_def *key_def, const char *tuple,
  * Return length of the key (required buffer size for storing it)
  */
 uint32_t
-key_create_from_tuple(struct key_def *key_def, const char *tuple,
+key_from_tuple_by_key_def(struct key_def *key_def, const char *tuple,
 		      char *key_buf, uint32_t key_buf_size)
 {
 	uint32_t space_for_arr = mp_sizeof_array(key_def->part_count);

@@ -99,16 +99,16 @@ request_encode(struct request *request, struct iovec *iov);
 
 /**
  * Reflects tuple on primary index's key definition, writes it in given buffer
- * and returns len of buffer. Memory for buffer allocation is allocating
- * dynamicaly inside.
+ * and returns size of written data.
  *
  * @param space - space of which primary key is need
- * @param found_tuple - tuple of space for reflecting
- * @param buffer - pointer on (char *) in that will be stored key
+ * @param tuple - tuple found by secondary key
+ * @param buffer - pointer on buffer in which key will be stored
+ * @param buffer_size - size of buffer
  */
 uint32_t
-fetch_primary_key_from_tuple(struct space *space, struct tuple *found_tuple,
-	char **buffer);
+key_from_tuple_by_space(struct space *space, struct tuple *tuple,
+	char *buffer, uint32_t buffer_size);
 
 /**
  * Convert secondary key of request to primary key by given tuple.
