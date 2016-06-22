@@ -181,16 +181,26 @@ request_encode(struct request *request, struct iovec *iov)
 	return iovcnt;
 }
 
-/**
- * See declaration for comments
- */
-uint32_t
-key_from_tuple_by_space(struct space *space, struct tuple *tuple,
-	char *buffer, uint32_t buffer_size)
+char *
+tuple_extract_key(const struct tuple *tuple, struct key_def *key_def,
+	uint32_t *key_size)
 {
-	Index *primary = index_find(space, 0);
-	return key_from_tuple_by_key_def(primary->key_def, tuple->data,
-					buffer, buffer_size);
+	return tuple_extract_key_raw(tuple->data, tuple->data + tuple->bsize,
+		key_def, key_size);
+}
+
+char *
+tuple_extract_key_raw(const char *data, const char *data_end,
+	struct key_def *key_def, uint32_t *key_size)
+{
+	uint32_t size = data_end - data;
+	char *key = (char *) region_alloc_xc(&fiber()->gc, size);
+	size = key_from_tuple_by_key_def(key_def, data,
+		key, size);
+	if (key_size != NULL) {
+		*key_size = size;
+	}
+	return key;
 }
 
 /**
@@ -206,9 +216,9 @@ void
 request_rebind_to_primary_key(struct request *request, struct space *space,
 			      struct tuple *found_tuple)
 {
-	uint32_t key_len = found_tuple->bsize;
-	char *key = (char *) region_alloc_xc(&fiber()->gc, key_len);
-	key_len = key_from_tuple_by_space(space, found_tuple, key, key_len);
+	Index *primary = index_find(space, 0);
+	uint32_t key_len;
+	char *key = tuple_extract_key(found_tuple, primary->key_def, &key_len);
 	request->key = key;
 	request->key_end = key + key_len;
 	request->index_id = 0;

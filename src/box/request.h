@@ -98,17 +98,27 @@ int
 request_encode(struct request *request, struct iovec *iov);
 
 /**
- * Reflects tuple on primary index's key definition, writes it in given buffer
- * and returns size of written data.
- *
- * @param space - space of which primary key is need
- * @param tuple - tuple found by secondary key
- * @param buffer - pointer on buffer in which key will be stored
- * @param buffer_size - size of buffer
+ * Extract key from tuple by given key definition and return
+ * buffer allocated on box_txn_alloc with this key.
+ * @param tuple - tuple from which need to extract key
+ * @param key_def - definition of key that need to extract
+ * @param key_size - here will be size of extracted key
  */
-uint32_t
-key_from_tuple_by_space(struct space *space, struct tuple *tuple,
-	char *buffer, uint32_t buffer_size);
+char *
+tuple_extract_key(const struct tuple *tuple, struct key_def *key_def,
+	uint32_t *key_size);
+
+/**
+ * Extract key from raw msgpuck by given key definition and return
+ * buffer allocated on box_txn_alloc with this key.
+ * @param data - msgpuck data from which need to extract key
+ * @param data_end - pointer at the end of data
+ * @param key_def - definition of key that need to extract
+ * @param key_size - here will be size of extracted key
+ */
+char *
+tuple_extract_key_raw(const char *data, const char *data_end,
+	struct key_def *key_def, uint32_t *key_size);
 
 /**
  * Convert secondary key of request to primary key by given tuple.

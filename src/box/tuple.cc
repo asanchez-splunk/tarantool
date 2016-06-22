@@ -29,6 +29,8 @@
  * SUCH DAMAGE.
  */
 #include "tuple.h"
+#include "schema.h"
+#include "request.h"
 
 #include "small/small.h"
 #include "small/quota.h"
@@ -889,4 +891,13 @@ box_tuple_upsert(const box_tuple_t *tuple, const char *expr, const char *expr_en
 	} catch (ClientError *e) {
 		return NULL;
 	}
+}
+
+char *
+box_tuple_extract_key(const box_tuple_t *tuple, uint32_t space_id,
+	uint32_t index_id, uint32_t *key_size)
+{
+	struct space *space = space_by_id(space_id);
+	Index *index = index_find(space, index_id);
+	return tuple_extract_key(tuple, index->key_def, key_size);
 }

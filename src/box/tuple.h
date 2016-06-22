@@ -250,6 +250,10 @@ box_tuple_t *
 box_tuple_upsert(const box_tuple_t *tuple, const char *expr, const
 		 char *expr_end);
 
+char *
+box_tuple_extract_key(const box_tuple_t *tuple, uint32_t space_id,
+	uint32_t index_id, uint32_t *key_size);
+
 /** \endcond public */
 
 #if defined(__cplusplus)
