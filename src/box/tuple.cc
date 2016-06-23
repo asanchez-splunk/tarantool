@@ -30,7 +30,6 @@
  */
 #include "tuple.h"
 #include "schema.h"
-#include "request.h"
 
 #include "small/small.h"
 #include "small/quota.h"
@@ -294,27 +293,38 @@ tuple_field_cstr(struct tuple *tuple, uint32_t i)
 	return tuple_field_to_cstr(str, len);
 }
 
-/**
- * Extract msgpacked key parts from tuple data.
- * Write the key to the provided buffer ('key_buf' argument), if the
- * buffer size is big enough ('key_buf_size' argument)
- * Return length of the key (required buffer size for storing it)
- */
-uint32_t
-key_parts_create_from_tuple(struct key_def *key_def, const char *tuple,
-			    char *key_buf, uint32_t key_buf_size)
+char *
+tuple_extract_key(const struct tuple *tuple, struct key_def *key_def,
+		  uint32_t *key_size)
 {
-	uint32_t key_len = 0;
+	return tuple_extract_key_raw(tuple->data, tuple->data + tuple->bsize,
+				     key_def, key_size);
+}
+
+char *
+tuple_extract_key_raw(const char *data, const char *data_end,
+		      struct key_def *key_def, uint32_t *key_size)
+{
+	uint32_t size = data_end - data;
+	char *key = (char *) region_alloc_xc(&fiber()->gc, size);
+	uint32_t space_for_arr = mp_sizeof_array(key_def->part_count);
+	uint32_t key_buf_size = size;
+	char *key_buf = key;
+	if (key_buf_size >= space_for_arr) {
+		key_buf = mp_encode_array(key_buf, key_def->part_count);
+		key_buf_size -= space_for_arr;
+	}
 	uint32_t part_count = key_def->part_count;
-	const char *field0 = tuple;
+	const char *field0 = data;
 	mp_decode_array(&field0);
 	const char *field0_end = field0;
 	mp_next(&field0_end);
 	const char *field = field0;
 	const char *field_end = field0_end;
 	uint32_t current_field_no = 0;
+	uint32_t field_no, field_len, key_len = 0;
 	for (uint32_t i = 0; i < part_count; i++) {
-		uint32_t field_no = key_def->parts[i].fieldno;
+		field_no = key_def->parts[i].fieldno;
 		if (field_no < current_field_no) {
 			/* Rewind. */
 			field = field0;
@@ -326,7 +336,7 @@ key_parts_create_from_tuple(struct key_def *key_def, const char *tuple,
 			mp_next(&field_end);
 			current_field_no++;
 		}
-		uint32_t field_len = (uint32_t)(field_end - field);
+		field_len = (uint32_t)(field_end - field);
 		key_len += field_len;
 		if (field_len <= key_buf_size) {
 			memcpy(key_buf, field, field_len);
@@ -334,27 +344,11 @@ key_parts_create_from_tuple(struct key_def *key_def, const char *tuple,
 			key_buf_size -= field_len;
 		}
 	}
-	return key_len;
-}
-
-/**
- * Extract msgpacked array with key parts from tuple data/
- * Write the key to the provided buffer ('key_buf' argument), if the
- * buffer size is big enough ('key_buf_size' argument)
- * Return length of the key (required buffer size for storing it)
- */
-uint32_t
-key_from_tuple_by_key_def(struct key_def *key_def, const char *tuple,
-		      char *key_buf, uint32_t key_buf_size)
-{
-	uint32_t space_for_arr = mp_sizeof_array(key_def->part_count);
-	if (key_buf_size >= space_for_arr) {
-		key_buf = mp_encode_array(key_buf, key_def->part_count);
-		key_buf_size -= space_for_arr;
+	size = space_for_arr + key_len;
+	if (key_size != NULL) {
+		*key_size = size;
 	}
-	return space_for_arr +
-		key_parts_create_from_tuple(key_def, tuple,
-					    key_buf, key_buf_size);
+	return key;
 }
 
 struct tuple *

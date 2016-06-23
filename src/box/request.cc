@@ -181,28 +181,6 @@ request_encode(struct request *request, struct iovec *iov)
 	return iovcnt;
 }
 
-char *
-tuple_extract_key(const struct tuple *tuple, struct key_def *key_def,
-	uint32_t *key_size)
-{
-	return tuple_extract_key_raw(tuple->data, tuple->data + tuple->bsize,
-		key_def, key_size);
-}
-
-char *
-tuple_extract_key_raw(const char *data, const char *data_end,
-	struct key_def *key_def, uint32_t *key_size)
-{
-	uint32_t size = data_end - data;
-	char *key = (char *) region_alloc_xc(&fiber()->gc, size);
-	size = key_from_tuple_by_key_def(key_def, data,
-		key, size);
-	if (key_size != NULL) {
-		*key_size = size;
-	}
-	return key;
-}
-
 /**
  * Convert a request accessing a secondary key to a primary key undo
  * record, given it found a tuple.

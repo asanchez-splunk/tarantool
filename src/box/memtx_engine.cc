@@ -363,6 +363,7 @@ MemtxSpace::executeUpsert(struct txn *txn, struct space *space,
 	/* Check tuple fields */
 	tuple_validate_raw(space->format, request->tuple);
 
+	struct key_def *key_def = pk->key_def;
 	uint32_t part_count = pk->key_def->part_count;
 	/*
 	 * Extract the primary key from tuple.
@@ -370,8 +371,34 @@ MemtxSpace::executeUpsert(struct txn *txn, struct space *space,
 	 */
 	uint32_t key_len = request->tuple_end - request->tuple;
 	char *key = (char *) region_alloc_xc(&fiber()->gc, key_len);
-	key_len = key_parts_create_from_tuple(pk->key_def, request->tuple,
-					      key, key_len);
+	char *key_buf = key;
+	const char *field0 = request->tuple;
+	mp_decode_array(&field0);
+	const char *field0_end = field0;
+	mp_next(&field0_end);
+	const char *field = field0;
+	const char *field_end = field0_end;
+	uint32_t current_field_no = 0;
+	for (uint32_t i = 0; i < part_count; i++) {
+		uint32_t field_no = key_def->parts[i].fieldno;
+		if (field_no < current_field_no) {
+			/* Rewind. */
+			field = field0;
+			field_end = field0_end;
+			current_field_no = 0;
+		}
+		while (current_field_no < field_no) {
+			field = field_end;
+			mp_next(&field_end);
+			current_field_no++;
+		}
+		uint32_t field_len = (uint32_t)(field_end - field);
+		if (field_len <= key_len) {
+			memcpy(key_buf, field, field_len);
+			key_buf += field_len;
+			key_len -= field_len;
+		}
+	}
 
 	/* Try to find the tuple by primary key. */
 	struct tuple *old_tuple = pk->findByKey(key, part_count);
