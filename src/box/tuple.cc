@@ -305,16 +305,9 @@ char *
 tuple_extract_key_raw(const char *data, const char *data_end,
 		      struct key_def *key_def, uint32_t *key_size)
 {
-	uint32_t size = data_end - data;
-	char *key = (char *) region_alloc_xc(&fiber()->gc, size);
-	uint32_t space_for_arr = mp_sizeof_array(key_def->part_count);
-	uint32_t key_buf_size = size;
-	char *key_buf = key;
-	if (key_buf_size >= space_for_arr) {
-		key_buf = mp_encode_array(key_buf, key_def->part_count);
-		key_buf_size -= space_for_arr;
-	}
-	uint32_t part_count = key_def->part_count;
+	/* allocate buffer with maximal possible size */
+	char *key = (char *) region_alloc_xc(&fiber()->gc, data_end - data);
+	char *key_buf = mp_encode_array(key, key_def->part_count);
 	const char *field0 = data;
 	mp_decode_array(&field0);
 	const char *field0_end = field0;
@@ -322,9 +315,8 @@ tuple_extract_key_raw(const char *data, const char *data_end,
 	const char *field = field0;
 	const char *field_end = field0_end;
 	uint32_t current_field_no = 0;
-	uint32_t field_no, field_len, key_len = 0;
-	for (uint32_t i = 0; i < part_count; i++) {
-		field_no = key_def->parts[i].fieldno;
+	for (uint32_t i = 0; i < key_def->part_count; i++) {
+		uint32_t field_no = key_def->parts[i].fieldno;
 		if (field_no < current_field_no) {
 			/* Rewind. */
 			field = field0;
@@ -336,18 +328,12 @@ tuple_extract_key_raw(const char *data, const char *data_end,
 			mp_next(&field_end);
 			current_field_no++;
 		}
-		field_len = (uint32_t)(field_end - field);
-		key_len += field_len;
-		if (field_len <= key_buf_size) {
-			memcpy(key_buf, field, field_len);
-			key_buf += field_len;
-			key_buf_size -= field_len;
-		}
+		memcpy(key_buf, field, field_end - field);
+		key_buf += field_end - field;
+		assert(key_buf - key <= data_end - data);
 	}
-	size = space_for_arr + key_len;
-	if (key_size != NULL) {
-		*key_size = size;
-	}
+	if (key_size != NULL)
+		*key_size = (uint32_t)(key_buf - key);
 	return key;
 }
 

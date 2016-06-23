@@ -369,10 +369,11 @@ MemtxSpace::executeUpsert(struct txn *txn, struct space *space,
 	 * Extract the primary key from tuple.
 	 * Allocate enough memory to store the key.
 	 */
-	char *key = tuple_extract_key_raw(request->tuple, request->tuple_end,
-					  key_def, NULL);
+	const char *key = tuple_extract_key_raw(request->tuple,
+						request->tuple_end,
+						key_def, NULL);
 	/* Cut array header */
-	mp_decode_array((const char **)&key);
+	mp_decode_array(&key);
 
 	/* Try to find the tuple by primary key. */
 	struct tuple *old_tuple = pk->findByKey(key, part_count);
